@@ -1,6 +1,7 @@
 const Note = require("../models/Note");
 
 //create note
+
 exports.createNote = async (req, res) => {
   try {
     const { title, content } = req.body;
@@ -23,7 +24,9 @@ exports.createNote = async (req, res) => {
 };
 
 
+
 // get all notes
+
 exports.getNotes = async (req, res) => {
   try {
     const notes = await Note.find({ user: req.user.userId });
@@ -34,7 +37,9 @@ exports.getNotes = async (req, res) => {
 };
 
 
+
 //get single note
+
 exports.getNoteById = async (req, res) => {
   try {
     const note = await Note.findOne({
@@ -52,8 +57,8 @@ exports.getNoteById = async (req, res) => {
   }
 };
 
-
 //update note -PATCH 
+
 exports.updateNote = async (req, res) => {
   try {
     const note = await Note.findOneAndUpdate(
@@ -73,9 +78,8 @@ exports.updateNote = async (req, res) => {
   }
 };
 
-
-
 //delete note
+
 exports.deleteNote = async (req, res) => {
   try {
     const note = await Note.findOneAndDelete({

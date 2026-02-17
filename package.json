@@ -17,13 +17,16 @@
     "express": "^5.2.1",
     "js": "^0.1.0",
     "jsonwebtoken": "^9.0.3",
+
     "mongodb": "^7.1.0",
     "mongoose": "^9.2.1",
     "morgan": "^1.10.1"
+
   },
   "devDependencies": {
     "nodemon": "^3.1.11"
   },
+
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Pavithrahar/DB-user-mongo-DB.git"
@@ -32,5 +35,6 @@
     "url": "https://github.com/Pavithrahar/DB-user-mongo-DB/issues"
   },
   "homepage": "https://github.com/Pavithrahar/DB-user-mongo-DB#readme",
+
   "description": ""
 }

@@ -8,10 +8,6 @@ const {
   logout,
 } = require("../controllers/authController");
 
-
-// Authentication Routes
-
-
 // Register new user
 router.post("/register", register);
 
