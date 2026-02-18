@@ -5,9 +5,9 @@ const authMiddleware = require("../middleware/authMiddleware");
 const UserData = require("../models/UserData");
 
 
-/* ===========================
-   CREATE DATA
-=========================== */
+
+   //CREATE DATA
+
 router.post("/", authMiddleware, async (req, res) => {
   try {
     const { title, description } = req.body;
@@ -30,12 +30,12 @@ router.post("/", authMiddleware, async (req, res) => {
 });
 
 
-/* ===========================
-   GET ALL DATA (List View)
-=========================== */
+
+ //  GET ALL DATA (List View)
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    console.log("Logged-in user ID:", req.user.userId); // 👈 Debug log
+    console.log("Logged-in user ID:", req.user.userId); //  Debug log
 
     const data = await UserData.find({ user: req.user.userId });
 
@@ -51,9 +51,9 @@ router.get("/", authMiddleware, async (req, res) => {
 });
 
 
-/* ===========================
-   GET SINGLE DATA (Detail View)
-=========================== */
+
+   //GET SINGLE DATA (Detail View)
+
 router.get("/:id", authMiddleware, async (req, res) => {
   try {
     const data = await UserData.findOne({
@@ -73,9 +73,9 @@ router.get("/:id", authMiddleware, async (req, res) => {
 });
 
 
-/* ===========================
-   UPDATE DATA (PATCH)
-=========================== */
+
+ //  UPDATE DATA (PATCH)
+
 router.patch("/:id", authMiddleware, async (req, res) => {
   try {
     const updatedData = await UserData.findOneAndUpdate(
@@ -96,9 +96,9 @@ router.patch("/:id", authMiddleware, async (req, res) => {
 });
 
 
-/* ===========================
-   DELETE DATA
-=========================== */
+
+  // DELETE DATA
+
 router.delete("/:id", authMiddleware, async (req, res) => {
   try {
     const deletedData = await UserData.findOneAndDelete({

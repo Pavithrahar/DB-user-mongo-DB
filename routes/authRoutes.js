@@ -6,9 +6,9 @@ const router = express.Router();
 const User = require("../models/User");
 const authMiddleware = require("../middleware/authMiddleware");
 
-/* ===========================
-   REGISTER USER
-=========================== */
+
+//register User 
+
 router.post("/register", async (req, res) => {
   try {
     const { username, email, password } = req.body;
@@ -48,9 +48,8 @@ router.post("/register", async (req, res) => {
 });
 
 
-/* ===========================
-   LOGIN USER
-=========================== */
+
+//login user 
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -92,9 +91,8 @@ router.post("/login", async (req, res) => {
 });
 
 
-/* ===========================
-   GET PROFILE (PROTECTED)
-=========================== */
+//get profile (protected)
+
 router.get("/profile", authMiddleware, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select("-password");
