@@ -1,147 +1,164 @@
-Project Name:   Wallet & Deposit Management API
+# DB-user-mongo-DB
 
-1.Overview
+**🔹 Full-featured User Management & Wallet System (Task 1 + Task 2) using Node.js & MongoDB**
 
-This project is a secure backend API built using:
+This repository contains a user management system built with Node.js and MongoDB, implementing **authentication, user data CRUD, refresh tokens, role-based access control (RBAC), and a wallet/deposit management system**.  
 
-Node.js
-Express.js
-MongoDB
-JWT Authentication
+**Task 1:** User Authentication & CRUD APIs  
+- Register and login users with JWT authentication.  
+- Create, read, update, and delete user-specific data with proper authorization.  
 
-It implements:
+**Task 2:** Advanced Features  
+- Refresh token system to renew expired access tokens and secure logout.  
+- RBAC to enforce user/admin permissions.  
+- Wallet and deposit flow: users submit deposits, admins approve/reject, wallet balances update automatically, with pagination, filtering, and proper business rules enforced.  
 
-Refresh Token Authentication System
-Role-Based Access Control (RBAC)
-Wallet & Deposit Management Flow
-Secure Business Rule Enforcement
+---
 
-2.Authentication System
+## Branch Overview
 
-Token Lifecycle
+- `main` → contains **all completed tasks** (Task 1 + Task 2)  
+- `feature/task-2-backup` → backup of Task 2 before merging into main (safe copy)  
 
-Access Token:
-Expiry: 15 minutes
-Used to access protected routes
+---
 
-Refresh Token:
-Expiry: 7 days
-Stored securely in database
-Used to generate new access tokens
+## Task 1: User Authentication & Data Management APIs
 
-Flow:
+**Implemented APIs:**
 
-User logs in → receives access & refresh tokens
+1. **User Authentication**
+   - User Registration (`POST /auth/register`)  
+   - User Login (`POST /auth/login`)  
+   - Password encryption and validation  
+   - JWT-based authentication  
 
-Access token expires after 15 minutes
+2. **User Data Management (CRUD)**
+   - Create Data (`POST /data`)  
+   - Read Data (list & detail) (`GET /data`)  
+   - Update Data (PATCH) (`PATCH /data/:id`)  
+   - Delete Data (`DELETE /data/:id`)  
+   - Authorization enforced via middleware  
 
-Client calls /auth/refresh-token with refresh token
+---
 
-Server verifies refresh token and issues new access token
+## Task 2: Advanced Features
 
-On logout → refresh token is removed from database
+### 1. Refresh Token System
+- Access token expiry: 15 minutes  
+- Refresh token expiry: 7 days  
+- Endpoints:  
+  - `POST /auth/refresh-token`  
+  - `POST /auth/logout`  
+- Flow:
+  1. User logs in → receives access & refresh tokens  
+  2. Access token expires → client calls `/auth/refresh-token`  
+  3. Server verifies refresh token → issues new access token  
+  4. Logout → refresh token removed from database  
+- Handles expired, invalid, or mismatched tokens  
+
+### 2. Role-Based Access Control (RBAC)
+- Roles: `user`, `admin`  
+- Normal User Can:
+  - View own profile  
+  - Update own profile  
+  - Create deposit request  
+  - View own deposits  
+  - Check wallet balance  
+- Admin Can:
+  - View all users  
+  - Delete any user  
+  - View all deposits  
+  - Approve/reject deposits  
+- Middleware Enforcement:
+  - `protect` → verifies authentication  
+  - `admin` → verifies role  
+
+### 3. Wallet & Deposit Management
+**Users:**  
+- Create deposit request (pending state)  
+- View own deposits with pagination/filtering  
+- Check wallet balance  
+
+**Admins:**  
+- View all deposits with filters (pagination, status, user, date, amount)  
+- Approve pending deposits → wallet balance updates automatically  
+- Reject pending deposits → wallet balance unchanged  
+- Only pending deposits can be approved/rejected  
+
+**Business Rules:**  
+- Deposit status transitions:
+  - pending → approved  
+  - pending → rejected  
+  - Approved deposits cannot be modified again  
+- Wallet balance integrity maintained  
+- Proper authorization and error handling (401, 403)  
+- Consistent API response format  
+
+---
+
+## API Endpoints
+
+**Auth**  
+- `POST /api/auth/register`  
+- `POST /api/auth/login`  
+- `POST /api/auth/refresh-token`  
+- `POST /api/auth/logout`  
+
+**Users**  
+- `GET /api/users/me`  
+- `GET /api/users` (admin only)  
+- `DELETE /api/users/:id` (admin only)  
+
+**Deposits / Wallet**  
+- `POST /api/deposits`  
+- `GET /api/deposits/my`  
+- `GET /api/deposits`  
+- `PATCH /api/deposits/:id/approve`  
+- `PATCH /api/deposits/:id/reject`  
+- `GET /api/deposits/wallet`  
+
+---
+
+## Repository Structure
+DB-user-mongo-DB
+│
+├── controllers/ # API controllers
+├── models/ # MongoDB models
+├── routes/ # API routes
+├── middleware/ # Authorization middleware
+├── config/ # DB config
+├── package.json
+├── package-lock.json
+├── server.js
+├── .gitignore
+└── README.md
 
 
-3.Role-Based Access Control (RBAC)
+---
 
-Roles:
+## Notes
 
-user
-admin
+- `main` branch contains **all tasks** for easy review  
+- `feature/task-2-backup` is a safe backup branch for Task 2  
+- `node_modules` are ignored via `.gitignore`  
+- All APIs are tested using Postman (collection available)  
 
-Normal User Can:
+---
 
-View own profile
-Update own profile
-Create deposit request
-View own deposits
-View wallet balance
+## Setup
 
-Admin Can:
+```bash
+git clone https://github.com/Pavithrahar/DB-user-mongo-DB.git
+cd DB-user-mongo-DB
+npm install
+npm run dev
 
-View all users
-Delete any user
-View all deposits
-Approve deposits
-Reject deposits
+Deliverables
 
-Middleware Enforcement:
+Working APIs for Task 1 + Task 2
 
-protect → verifies authentication
-admin → verifies role
+Proper authorization and role-based access
 
-4.Deposit Flow
+Pagination, filtering, and error handling implemented
 
-->Create Deposit
-
-User submits deposit amount
-Deposit status = pending
-User cannot set approval status manually
-
-->Admin Approval
-
-Only admin can approve
-Only pending deposits can be approved
-On approval:
-    Deposit status → approved
-    User wallet balance increases
-Double approval prevented
-
-->Admin Rejection
-
-Only pending deposits can be rejected
-Wallet balance remains unchanged
-
-5.Wallet System
-
-Endpoint:
-GET /api/deposits/wallet
-
-->Returns current user's wallet balance
-->Requires authentication
-Wallet balance is updated only when:
-->Deposit status changes to approved
-
-6.Pagination & Filtering
-
-Supported on deposit endpoints:
-
-Pagination (page, limit)
-Filtering by status
-Admin filtering by userId
-Sorting by createdAt
-
-7.Business Rules Enforced
-
-Deposit status transitions:
-
-pending → approved
-pending → rejected
-Approved deposits cannot be modified again
-Wallet balance integrity maintained
-Proper 401 & 403 handling
-Consistent API response format
-
-8.API Endpoints
-
-Auth
-
-POST /api/auth/register
-POST /api/auth/login
-POST /api/auth/refresh-token
-POST /api/auth/logout
-
-Users
-
-GET /api/users/me
-GET /api/users (admin only)
-DELETE /api/users/:id (admin only)
-
-Deposits
-
-POST /api/deposits
-GET /api/deposits/my
-GET /api/deposits
-PATCH /api/deposits/:id/approve
-PATCH /api/deposits/:id/reject
-GET /api/deposits/wallet
+Clean and consistent code structure
