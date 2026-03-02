@@ -1,16 +1,13 @@
 const mongoose = require("mongoose");
 
-const depositSchema = new mongoose.Schema({
+const withdrawalSchema = new mongoose.Schema({
   userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
   assetType: { type: String, required: true },
   amount: { type: Number, required: true },
-  transactionReferenceId: { type: String, required: true, unique: true },
-  assetProof: { type: String },
-  network: { type: String },
-  walletAddress: { type: String },
+  destinationWallet: { type: String, required: true },
   remarks: { type: String },
   status: { type: String, enum: ["PENDING","APPROVED","REJECTED"], default: "PENDING" },
   adminRemarks: { type: String },
 }, { timestamps: true });
 
-module.exports = mongoose.model("Deposit", depositSchema);
+module.exports = mongoose.model("Withdrawal", withdrawalSchema);

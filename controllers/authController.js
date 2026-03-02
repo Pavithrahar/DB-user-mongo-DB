@@ -1,184 +1,96 @@
+console.log("JWT_SECRET =", process.env.JWT_SECRET);
+console.log("JWT_REFRESH_SECRET =", process.env.JWT_REFRESH_SECRET);
 const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const {
-  generateAccessToken,
-  generateRefreshToken,
-} = require("../utils/generateToken");
 
+// Generate Access Token
 
-// REGISTER
-
-
-exports.register = async (req, res) => {
-  try {
-    const { username, email, password } = req.body;
-
-    const existingUser = await User.findOne({ email });
-    if (existingUser)
-      return res.status(400).json({
-        success: false,
-        message: "Email already exists",
-      });
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create({
-      username,
-      email,
-      password: hashedPassword,
-      role: "user", 
-    });
-
-    res.status(201).json({
-      success: true,
-      message: "User registered successfully",
-      data: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-
-    });
-  }
+const generateAccessToken = (userId) => {
+  return jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "15m" });
 };
 
 
-// LOGIN
+// Generate Refresh Token
+
+const generateRefreshToken = (userId) => {
+  return jwt.sign({ id: userId }, process.env.JWT_REFRESH_SECRET, { expiresIn: "7d" });
+};
 
 
-exports.login = async (req, res) => {
+// Register new user
+
+const registerUser = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { name, email, password } = req.body;
+    if (!name || !email || !password)
+      return res.status(400).json({ success: false, message: "All fields are required" });
 
-    const user = await User.findOne({ email });
+    const userExists = await User.findOne({ email });
+    if (userExists)
+      return res.status(400).json({ success: false, message: "User already exists" });
 
-    if (!user)
-      return res.status(400).json({
-        success: false,
-        message: "Invalid credentials",
-      });
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch)
-      return res.status(400).json({
-        success: false,
-        message: "Invalid credentials",
-      });
+    const user = await User.create({ name, email, password: hashedPassword });
 
     const accessToken = generateAccessToken(user._id);
     const refreshToken = generateRefreshToken(user._id);
 
-    user.refreshToken = refreshToken;
-    await user.save();
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      data: { _id: user._id, name: user.name, email: user.email, accessToken, refreshToken },
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
 
-    res.json({
+
+// Login existing user
+
+const loginUser = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password)
+      return res.status(400).json({ success: false, message: "Email and password required" });
+
+    const user = await User.findOne({ email });
+    if (!user) return res.status(400).json({ success: false, message: "Invalid credentials" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) return res.status(400).json({ success: false, message: "Invalid credentials" });
+
+    const accessToken = generateAccessToken(user._id);
+    const refreshToken = generateRefreshToken(user._id);
+
+    res.status(200).json({
       success: true,
       message: "Login successful",
-      data: {
-        accessToken,
-        refreshToken,
-      },
+      data: { _id: user._id, name: user.name, email: user.email, accessToken, refreshToken },
     });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
 
-// LOGOUT
+// Refresh token endpoint
 
-exports.logout = async (req, res) => {
+const refreshToken = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const { token } = req.body;
+    if (!token) return res.status(400).json({ success: false, message: "Refresh token required" });
 
-    if (!refreshToken)
-      return res.status(400).json({
-        success: false,
-        message: "Refresh token required",
-      });
+    const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+    const accessToken = generateAccessToken(decoded.id);
 
-    const user = await User.findOne({ refreshToken });
-
-    if (!user)
-      return res.status(401).json({
-        success: false,
-        message: "Invalid refresh token",
-      });
-
-    user.refreshToken = "";
-    await user.save();
-
-    res.json({
-      success: true,
-      message: "Logged out successfully",
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    res.status(200).json({ success: true, accessToken });
+  } catch (err) {
+    res.status(401).json({ success: false, message: "Invalid or expired refresh token" });
   }
 };
 
-
-// REFRESH TOKEN
-
-exports.refreshToken = async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
-
-    if (!refreshToken)
-      return res.status(400).json({
-        success: false,
-        message: "Refresh token required",
-      });
-
-    // Verify JWT signature & expiry
-    let decoded;
-    try {
-      decoded = jwt.verify(
-        refreshToken,
-        process.env.JWT_REFRESH_SECRET
-      );
-    } catch (err) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid or expired refresh token",
-      });
-    }
-
-    const user = await User.findById(decoded.id);
-
-    if (!user || user.refreshToken !== refreshToken)
-      return res.status(401).json({
-        success: false,
-        message: "Refresh token mismatch",
-      });
-
-    const newAccessToken = generateAccessToken(user._id);
-
-    res.json({
-      success: true,
-      message: "Access token refreshed",
-      data: {
-        accessToken: newAccessToken,
-      },
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
+module.exports = { registerUser, loginUser, refreshToken };

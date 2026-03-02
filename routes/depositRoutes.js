@@ -1,25 +1,43 @@
 const express = require("express");
 const router = express.Router();
+const { protect, admin } = require("../middleware/authMiddleware");
+const multer = require("multer");
+const upload = multer({ dest: "uploads/" });
 
 const {
   createDeposit,
-  getMyDeposits,
   getAllDeposits,
-  approveDeposit,
-  rejectDeposit,
-  getWalletBalance
+  updateDepositStatus,
 } = require("../controllers/depositController");
 
-const { protect, admin } = require("../middleware/authMiddleware");
+// User: Create deposit
+router.post("/", protect, upload.single("assetProof"), createDeposit);
 
-// User routes
-router.post("/", protect, createDeposit);
-router.get("/my", protect, getMyDeposits);
-router.get("/wallet", protect, getWalletBalance);
+// User: Get all deposits
+router.get("/", protect, getAllDeposits);
 
-// Admin routes
-router.get("/", protect, admin, getAllDeposits);
-router.patch("/:id/approve", protect, admin, approveDeposit);
-router.patch("/:id/reject", protect, admin, rejectDeposit);
+// Admin: Approve deposit
+router.patch(
+  "/:id/approve",
+  protect,
+  admin,
+  (req, res, next) => {
+    req.body.status = "APPROVED";
+    next();
+  },
+  updateDepositStatus
+);
+
+// Admin: Reject deposit
+router.patch(
+  "/:id/reject",
+  protect,
+  admin,
+  (req, res, next) => {
+    req.body.status = "REJECTED";
+    next();
+  },
+  updateDepositStatus
+);
 
 module.exports = router;

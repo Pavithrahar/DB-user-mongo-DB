@@ -1,196 +1,98 @@
 const Deposit = require("../models/Deposit");
-const User = require("../models/User");
+const Wallet = require("../models/Wallet");
+const FeeConfig = require("../models/FeeConfig");
 
 
-//  Create Deposit (User)
+// Create Deposit (User)
 
-exports.createDeposit = async (req, res) => {
+const createDeposit = async (req, res) => {
   try {
-    const { amount } = req.body;
+    const { assetType, amount, network, walletAddress, remarks } = req.body;
 
-    if (!amount || amount <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid deposit amount"
-      });
-    }
-
-    const deposit = await Deposit.create({
-      user: req.user._id,
+    const depositData = {
+      userId: req.user._id,
+      assetType,
       amount,
-      status: "pending"
-    });
+      network,
+      walletAddress,
+      remarks,
+      status: "PENDING",
+      transactionReferenceId: "DEP" + Date.now(),
+      assetProof: req.file ? req.file.path : null,
+    };
+
+    const deposit = await Deposit.create(depositData);
 
     res.status(201).json({
       success: true,
-      message: "Deposit request created",
-      data: deposit
+      message: "Deposit created successfully",
+      data: deposit,
     });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error"
-    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
 
-//  User - View Own Deposits
+// Get All Deposits (User)
 
-exports.getMyDeposits = async (req, res) => {
+const getAllDeposits = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status } = req.query;
-
-    const query = { user: req.user._id };
-
-    if (status) query.status = status;
-
-    const deposits = await Deposit.find(query)
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-
-    res.status(200).json({
-      success: true,
-      message: "Deposits fetched successfully",
-      data: deposits
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error"
-    });
+    const deposits = await Deposit.find({ userId: req.user._id }).sort({ createdAt: -1 });
+    res.json({ success: true, data: deposits });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
 
 
-//  Admin - View All Deposits
+// Admin: Approve/Reject Deposit
 
-exports.getAllDeposits = async (req, res) => {
+const updateDepositStatus = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, userId } = req.query;
-
-    const query = {};
-
-    if (status) query.status = status;
-    if (userId) query.user = userId;
-
-    const deposits = await Deposit.find(query)
-      .populate("user", "username email")
-      .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(Number(limit));
-
-    res.status(200).json({
-      success: true,
-      message: "All deposits fetched successfully",
-      data: deposits
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error"
-    });
-  }
-};
-
-
-// Admin - Approve Deposit
-
-exports.approveDeposit = async (req, res) => {
-  try {
+    const { status, adminRemarks } = req.body;
     const deposit = await Deposit.findById(req.params.id);
+    if (!deposit) return res.status(404).json({ success: false, message: "Deposit not found" });
 
-    if (!deposit) {
-      return res.status(404).json({
-        success: false,
-        message: "Deposit not found"
-      });
-    }
-
-    if (deposit.status !== "pending") {
-      return res.status(400).json({
-        success: false,
-        message: "Only pending deposits can be approved"
-      });
-    }
-
-    deposit.status = "approved";
+    deposit.status = status;
+    deposit.adminRemarks = adminRemarks || "";
     await deposit.save();
 
-    await User.findByIdAndUpdate(deposit.user, {
-      $inc: { walletBalance: deposit.amount }
-    });
+    // Only process wallet if approved
+    if (status === "APPROVED") {
+      // Get fee config
+      const feeConfig = await FeeConfig.findOne({ assetType: deposit.assetType });
+      let fee = 0, gst = 0, finalAmount = deposit.amount;
 
-    res.status(200).json({
-      success: true,
-      message: "Deposit approved successfully"
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error"
-    });
-  }
-};
-
-
-//  Admin - Reject Deposit
-
-exports.rejectDeposit = async (req, res) => {
-  try {
-    const deposit = await Deposit.findById(req.params.id);
-
-    if (!deposit) {
-      return res.status(404).json({
-        success: false,
-        message: "Deposit not found"
-      });
-    }
-
-    if (deposit.status !== "pending") {
-      return res.status(400).json({
-        success: false,
-        message: "Only pending deposits can be rejected"
-      });
-    }
-
-    deposit.status = "rejected";
-    await deposit.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Deposit rejected successfully"
-    });
-
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error"
-    });
-  }
-};
-
-
-//  User - Get Wallet Balance
-
-exports.getWalletBalance = async (req, res) => {
-  try {
-    res.status(200).json({
-      success: true,
-      message: "Wallet balance fetched successfully",
-      data: {
-        walletBalance: req.user.walletBalance
+      if (feeConfig && feeConfig.feesEnabled) {
+        fee = deposit.amount * feeConfig.feePercent / 100;
+        gst = fee * feeConfig.gstPercent / 100;
+        finalAmount = deposit.amount - fee - gst;
       }
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: "Server Error"
-    });
+
+      let wallet = await Wallet.findOne({ userId: deposit.userId });
+      if (!wallet) {
+        wallet = await Wallet.create({
+          userId: deposit.userId,
+          assets: [{
+            assetType: deposit.assetType,
+            availableBalance: finalAmount,
+            lockedBalance: 0
+          }]
+        });
+      } else {
+        if (!wallet.assets) wallet.assets = [];
+        let asset = wallet.assets.find(a => a.assetType === deposit.assetType);
+        if (asset) asset.availableBalance += finalAmount;
+        else wallet.assets.push({ assetType: deposit.assetType, availableBalance: finalAmount, lockedBalance: 0 });
+        await wallet.save();
+      }
+    }
+
+    res.json({ success: true, message: `Deposit ${status.toLowerCase()} successfully`, data: deposit });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 };
+
+module.exports = { createDeposit, getAllDeposits, updateDepositStatus };

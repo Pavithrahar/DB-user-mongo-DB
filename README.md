@@ -1,164 +1,123 @@
-# DB-user-mongo-DB
+# Wallet & Transaction Management System
 
-**🔹 Full-featured User Management & Wallet System (Task 1 + Task 2) using Node.js & MongoDB**
-
-This repository contains a user management system built with Node.js and MongoDB, implementing **authentication, user data CRUD, refresh tokens, role-based access control (RBAC), and a wallet/deposit management system**.  
-
-**Task 1:** User Authentication & CRUD APIs  
-- Register and login users with JWT authentication.  
-- Create, read, update, and delete user-specific data with proper authorization.  
-
-**Task 2:** Advanced Features  
-- Refresh token system to renew expired access tokens and secure logout.  
-- RBAC to enforce user/admin permissions.  
-- Wallet and deposit flow: users submit deposits, admins approve/reject, wallet balances update automatically, with pagination, filtering, and proper business rules enforced.  
+A Node.js + Express + MongoDB project for managing user wallets, deposits, withdrawals, fees, and GST.
 
 ---
 
-## Branch Overview
+## Features
 
-- `main` → contains **all completed tasks** (Task 1 + Task 2)  
-- `feature/task-2-backup` → backup of Task 2 before merging into main (safe copy)  
+- User authentication (Register / Login / Refresh Token) using JWT
 
----
+- User Wallet management (multiple assets per user)
+- Deposit functionality:
 
-## Task 1: User Authentication & Data Management APIs
+  - Users can create deposits with proof (screenshot/document)
+  - Admin can approve/reject deposits
+  - Configurable fees & GST applied
 
-**Implemented APIs:**
+- Withdrawal functionality:
+  - Users can request withdrawals
+  - Admin can approve/reject withdrawals
 
-1. **User Authentication**
-   - User Registration (`POST /auth/register`)  
-   - User Login (`POST /auth/login`)  
-   - Password encryption and validation  
-   - JWT-based authentication  
+- Fee & GST management:
+  - Admin can configure fees per asset and enable/disable dynamically
 
-2. **User Data Management (CRUD)**
-   - Create Data (`POST /data`)  
-   - Read Data (list & detail) (`GET /data`)  
-   - Update Data (PATCH) (`PATCH /data/:id`)  
-   - Delete Data (`DELETE /data/:id`)  
-   - Authorization enforced via middleware  
-
----
-
-## Task 2: Advanced Features
-
-### 1. Refresh Token System
-- Access token expiry: 15 minutes  
-- Refresh token expiry: 7 days  
-- Endpoints:  
-  - `POST /auth/refresh-token`  
-  - `POST /auth/logout`  
-- Flow:
-  1. User logs in → receives access & refresh tokens  
-  2. Access token expires → client calls `/auth/refresh-token`  
-  3. Server verifies refresh token → issues new access token  
-  4. Logout → refresh token removed from database  
-- Handles expired, invalid, or mismatched tokens  
-
-### 2. Role-Based Access Control (RBAC)
-- Roles: `user`, `admin`  
-- Normal User Can:
-  - View own profile  
-  - Update own profile  
-  - Create deposit request  
-  - View own deposits  
-  - Check wallet balance  
-- Admin Can:
-  - View all users  
-  - Delete any user  
-  - View all deposits  
-  - Approve/reject deposits  
-- Middleware Enforcement:
-  - `protect` → verifies authentication  
-  - `admin` → verifies role  
-
-### 3. Wallet & Deposit Management
-**Users:**  
-- Create deposit request (pending state)  
-- View own deposits with pagination/filtering  
-- Check wallet balance  
-
-**Admins:**  
-- View all deposits with filters (pagination, status, user, date, amount)  
-- Approve pending deposits → wallet balance updates automatically  
-- Reject pending deposits → wallet balance unchanged  
-- Only pending deposits can be approved/rejected  
-
-**Business Rules:**  
-- Deposit status transitions:
-  - pending → approved  
-  - pending → rejected  
-  - Approved deposits cannot be modified again  
-- Wallet balance integrity maintained  
-- Proper authorization and error handling (401, 403)  
-- Consistent API response format  
+- Transaction history & single transaction retrieval
+- Admin transaction listing with filters (date, user, status, asset type)
+- Proper status handling (`Pending`, `Approved`, `Rejected`)
+- Audit logs for admin actions
+- Secure file upload for deposit proofs
 
 ---
 
-## API Endpoints
+## Environment Variables
 
-**Auth**  
-- `POST /api/auth/register`  
-- `POST /api/auth/login`  
-- `POST /api/auth/refresh-token`  
-- `POST /api/auth/logout`  
-
-**Users**  
-- `GET /api/users/me`  
-- `GET /api/users` (admin only)  
-- `DELETE /api/users/:id` (admin only)  
-
-**Deposits / Wallet**  
-- `POST /api/deposits`  
-- `GET /api/deposits/my`  
-- `GET /api/deposits`  
-- `PATCH /api/deposits/:id/approve`  
-- `PATCH /api/deposits/:id/reject`  
-- `GET /api/deposits/wallet`  
-
----
-
-## Repository Structure
-DB-user-mongo-DB
-│
-├── controllers/ # API controllers
-├── models/ # MongoDB models
-├── routes/ # API routes
-├── middleware/ # Authorization middleware
-├── config/ # DB config
-├── package.json
-├── package-lock.json
-├── server.js
-├── .gitignore
-└── README.md
-
-
----
-
-## Notes
-
-- `main` branch contains **all tasks** for easy review  
-- `feature/task-2-backup` is a safe backup branch for Task 2  
-- `node_modules` are ignored via `.gitignore`  
-- All APIs are tested using Postman (collection available)  
-
----
-
-## Setup
+Create a `.env` file in the root:
 
 ```bash
-git clone https://github.com/Pavithrahar/DB-user-mongo-DB.git
-cd DB-user-mongo-DB
+PORT=5000
+MONGO_URI=<Your MongoDB connection string>
+JWT_SECRET=<Your JWT access token secret>
+JWT_REFRESH_SECRET=<Your JWT refresh token secret>
+
+Installation
+
+git clone <your-repo-url>
+cd <project-folder>
 npm install
-npm run dev
+npm start
 
-Deliverables
+Server runs at: http://localhost:5000.
 
-Working APIs for Task 1 + Task 2
 
-Proper authorization and role-based access
+API Endpoints — Manual Postman Testing
 
-Pagination, filtering, and error handling implemented
+1️⃣ Auth Routes
 
-Clean and consistent code structure
+Endpoint	Method	Headers	Body	Notes
+/api/auth/register	POST	Content-Type: application/json	json { "name": "Pavithraharini", "email": "pavithra123@gmail.com", "password": "123456" }	Register a new user
+/api/auth/login	POST	Content-Type: application/json	json { "email": "pavithra123@gmail.com", "password": "123456" }	Login and get accessToken & refreshToken
+/api/auth/refresh	POST	Content-Type: application/json	json { "token": "<refresh_token>" }	Refresh JWT access token
+
+2️⃣ Deposit Routes
+
+Endpoint	Method	Headers	Body / Form-data	Notes
+/api/deposits	POST	Authorization: Bearer <accessToken>	Form-data:
+assetType: BTC
+amount: 0.5
+network: Bitcoin
+walletAddress: <user_wallet_address>
+remarks: Test deposit
+assetProof: <file>	Create a deposit request
+/api/deposits/:id/approve	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin approves a deposit
+/api/deposits/:id/reject	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin rejects a deposit
+
+3️⃣ Withdrawal Routes
+
+Endpoint	Method	Headers	Body	Notes
+/api/withdrawals	POST	Authorization: Bearer <accessToken>	json { "assetType": "BTC", "amount": 0.2, "destinationWallet": "<wallet_address>", "remarks": "Withdrawal test" }	Request a withdrawal
+/api/withdrawals/:id/approve	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin approves a withdrawal
+/api/withdrawals/:id/reject	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin rejects a withdrawal
+
+4️⃣ Wallet Routes
+
+Endpoint	Method	Headers	Body	Notes
+/api/wallets	GET	Authorization: Bearer <accessToken>	None	Get all wallet balances for logged-in user
+
+5️⃣ Transaction Routes
+
+Endpoint	Method	Headers	Body	Notes
+/api/transactions	GET	Authorization: Bearer <accessToken>	None	Get transaction history (deposit + withdrawal)
+/api/transactions/:id	GET	Authorization: Bearer <accessToken>	None	Get single transaction details
+
+6️⃣ Fee & GST Management (Admin)
+
+Endpoint	Method	Headers	Body	Notes
+/api/fees	GET	Authorization: Bearer <admin_accessToken>	None	List all fee configurations
+/api/fees	POST	Authorization: Bearer <admin_accessToken>	json { "assetType": "BTC", "feePercentage": 0.5, "gstPercentage": 18, "enabled": true }	Create or update fee & GST
+Testing Notes
+
+
+Always replace tokens:
+
+<accessToken> = token from user login
+
+<admin_accessToken> = token from admin login
+
+<refresh_token> = refresh token from login
+
+
+Deposit/Withdrawal IDs: Use _id from API responses for approve/reject.
+
+
+Sequence to test:
+
+1.Register → Login → Deposit → Approve Deposit → Check Wallet
+
+2.Request Withdrawal → Approve Withdrawal → Check Wallet
+
+3.Check Transaction History → Single Transaction → Fees
+
+4.Deposit uses form-data (file upload), all others use JSON.
+
+5.Statuses: Pending, Approved, Rejected.

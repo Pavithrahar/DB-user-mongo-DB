@@ -1,60 +1,113 @@
 const Deposit = require("../models/Deposit");
-const User = require("../models/User");
+const Wallet = require("../models/Wallet");
+const FeeSetting = require("../models/FeeSetting");
 
-// Get All Deposits
+// ✅ GET all deposits (Admin)
 exports.getAllDeposits = async (req, res) => {
   try {
-    const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
+    const deposits = await Deposit.find()
+      .sort({ createdAt: -1 });
 
-    const filter = {};
-    if (req.query.status) filter.status = req.query.status;
-    if (req.query.user) filter.user = req.query.user;
-
-    const deposits = await Deposit.find(filter)
-      .populate("user", "username email")
-      .sort(req.query.sort || "-createdAt")
-      .skip(skip)
-      .limit(limit);
-
-    res.json(deposits);
+    res.json({ success: true, data: deposits });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Approve Deposit
+// ✅ Approve deposit (Admin)
 exports.approveDeposit = async (req, res) => {
   try {
     const deposit = await Deposit.findById(req.params.id);
-    if (!deposit) return res.status(404).json({ message: "Deposit not found" });
-    if (deposit.status !== "pending") return res.status(400).json({ message: "Deposit already processed" });
 
-    deposit.status = "approved";
-    deposit.approvedAt = new Date();
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found",
+      });
+    }
+
+    if (deposit.status !== "PENDING") {
+      return res.status(400).json({
+        success: false,
+        message: "Deposit already processed",
+      });
+    }
+
+    // 🔹 Fee & GST calculation (if exists)
+    const feeConfig =
+      (await FeeSetting.findOne({ assetType: deposit.assetType })) || {
+        feePercent: 0,
+        gstPercent: 0,
+      };
+
+    const fee = (deposit.amount * feeConfig.feePercent) / 100;
+    const gst = (fee * feeConfig.gstPercent) / 100;
+    const finalAmount = deposit.amount - fee - gst;
+
+    // 🔹 Update deposit
+    deposit.status = "APPROVED";
+    deposit.fee = fee;
+    deposit.gst = gst;
+    deposit.finalAmount = finalAmount;
+
     await deposit.save();
 
-    await User.findByIdAndUpdate(deposit.user, { $inc: { walletBalance: deposit.amount } });
+    // 🔹 Update wallet
+    let wallet = await Wallet.findOne({
+      userId: deposit.userId,
+      assetType: deposit.assetType,
+    });
 
-    res.json({ message: "Deposit approved", deposit });
+    if (!wallet) {
+      wallet = await Wallet.create({
+        userId: deposit.userId,
+        assetType: deposit.assetType,
+        availableBalance: finalAmount,
+        lockedBalance: 0,
+      });
+    } else {
+      wallet.availableBalance += finalAmount;
+      await wallet.save();
+    }
+
+    res.json({
+      success: true,
+      message: "Deposit approved successfully",
+      data: deposit,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Reject Deposit
+// ✅ Reject deposit (Admin)
 exports.rejectDeposit = async (req, res) => {
   try {
     const deposit = await Deposit.findById(req.params.id);
-    if (!deposit) return res.status(404).json({ message: "Deposit not found" });
-    if (deposit.status !== "pending") return res.status(400).json({ message: "Deposit already processed" });
 
-    deposit.status = "rejected";
+    if (!deposit) {
+      return res.status(404).json({
+        success: false,
+        message: "Deposit not found",
+      });
+    }
+
+    if (deposit.status !== "PENDING") {
+      return res.status(400).json({
+        success: false,
+        message: "Deposit already processed",
+      });
+    }
+
+    deposit.status = "REJECTED";
     await deposit.save();
 
-    res.json({ message: "Deposit rejected", deposit });
+    res.json({
+      success: true,
+      message: "Deposit rejected successfully",
+      data: deposit,
+    });
   } catch (error) {
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ success: false, message: error.message });
   }
 };
