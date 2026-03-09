@@ -1,67 +1,83 @@
-// Load Environment Variables
-
-const dotenv = require("dotenv");
-dotenv.config(); // Must be at the top
-
 const express = require("express");
 const mongoose = require("mongoose");
-const path = require("path");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const rateLimit = require("express-rate-limit");
 
-
-// Initialize App
+dotenv.config();
 
 const app = express();
 
 
 // Middleware
-
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Serve uploaded files (deposit proofs)
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(cors());
 
 
-// Routes
+// Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: "Too many requests from this IP, please try again later."
+});
 
-app.use("/api/auth", require("./routes/authRoutes"));             // Auth routes
-app.use("/api/deposits", require("./routes/depositRoutes"));      // Deposit routes
-app.use("/api/withdrawals", require("./routes/withdrawRoutes"));  // Withdrawal routes
-app.use("/api/wallets", require("./routes/walletRoutes"));        // Wallet routes
-app.use("/api/transactions", require("./routes/transactionRoutes"));// Transactions routes
-app.use("/api/fees", require("./routes/feeRoutes"));// Fee & GST routes
+app.use(limiter);
+
+
+// Import Routes
+const authRoutes = require("./routes/authRoutes");
+const adminRoutes = require("./routes/adminRoutes");
+const userRoutes = require("./routes/userRoutes");
+const userDataRoutes = require("./routes/userDataRoutes");
+const walletRoutes = require("./routes/walletRoutes");
+const withdrawRoutes = require("./routes/withdrawRoutes");
+const depositRoutes = require("./routes/depositRoutes");
+const transactionRoutes = require("./routes/transactionRoutes");
+const ledgerRoutes = require("./routes/ledgerRoutes");
+const feeRoutes = require("./routes/feeRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
+const settingsRoutes = require("./routes/settingsRoutes");
+const noteRoutes = require("./routes/noteRoutes");
+const adminReportRoutes = require("./routes/adminReportRoutes");
+
+
+// API Routes
+app.use("/api/auth", authRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/user-data", userDataRoutes);
+app.use("/api/wallet", walletRoutes);
+app.use("/api/withdraw", withdrawRoutes);
+app.use("/api/deposit", depositRoutes);
+app.use("/api/transactions", transactionRoutes);
+app.use("/api/ledger", ledgerRoutes);
+app.use("/api/fees", feeRoutes);
+app.use("/api/notifications", notificationRoutes);
+app.use("/api/settings", settingsRoutes);
+app.use("/api/notes", noteRoutes);
+app.use("/api/admin/reports", adminReportRoutes);
+
+
+// Root
+app.get("/", (req, res) => {
+  res.send("Wallet Ledger System API Running");
+});
 
 
 // MongoDB Connection
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => {
 
-const connectDB = async () => {
-  try {
-    const conn = await mongoose.connect(process.env.MONGO_URI); // No options needed for Mongoose 7+
-    console.log(`MongoDB Connected: ${conn.connection.host}`);
-  } catch (err) {
-    console.error(`MongoDB Connection Error: ${err.message}`);
-    process.exit(1);
-  }
-};
+    console.log("MongoDB Connected");
 
-connectDB();
+    const PORT = process.env.PORT || 5000;
 
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
 
-// Root route
-app.get("/", (req, res) => {
-  res.send("API is running...");
-});
-
-
-// Global error handler
-
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ success: false, message: err.message });
-});
-
-
-// Start Server
-
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  })
+  .catch((error) => {
+    console.error("MongoDB connection failed:", error);
+  });

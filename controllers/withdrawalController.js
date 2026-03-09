@@ -1,84 +1,151 @@
 const Withdrawal = require("../models/Withdrawal");
-const Wallet = require("../models/Wallet");
-const FeeConfig = require("../models/FeeConfig");
+const User = require("../models/User");
+const Notification = require("../models/Notification");
 
 
-// Request Withdrawal (User)
-
-const createWithdrawal = async (req, res) => {
+// Create withdrawal request
+exports.createWithdrawal = async (req, res) => {
   try {
-    const { assetType, amount, destinationWallet, remarks } = req.body;
-    if (!assetType || !amount || !destinationWallet)
-      return res.status(400).json({ success: false, message: "All fields required" });
 
-    let wallet = await Wallet.findOne({ userId: req.user._id });
-    if (!wallet) return res.status(400).json({ success: false, message: "Wallet not found" });
+    const { amount } = req.body;
 
-    let asset = wallet.assets.find(a => a.assetType === assetType);
-    if (!asset || asset.availableBalance < amount)
-      return res.status(400).json({ success: false, message: "Insufficient balance" });
+    const user = await User.findById(req.user.id);
 
-    // Lock the requested amount
-    asset.availableBalance -= amount;
-    asset.lockedBalance += amount;
-    await wallet.save();
+    if (!user)
+      return res.status(404).json({ message: "User not found" });
+
+    if (user.walletBalance < amount)
+      return res.status(400).json({ message: "Insufficient balance" });
 
     const withdrawal = await Withdrawal.create({
-      userId: req.user._id,
-      assetType,
-      amount,
-      destinationWallet,
-      remarks,
+      user: user._id,
+      amount
     });
 
-    res.status(201).json({ success: true, message: "Withdrawal requested", data: withdrawal });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    // Create notification
+    await Notification.create({
+      user: user._id,
+      message: `Withdrawal request of ${amount} created`
+    });
+
+    res.status(201).json({
+      success: true,
+      withdrawal
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
 
-// Admin Approve/Reject Withdrawal
-
-const updateWithdrawalStatus = async (req, res) => {
+// User withdrawals
+exports.getUserWithdrawals = async (req, res) => {
   try {
-    const { status, adminRemarks } = req.body;
-    const withdrawal = await Withdrawal.findById(req.params.id);
-    if (!withdrawal) return res.status(404).json({ success: false, message: "Withdrawal not found" });
 
-    withdrawal.status = status;
-    withdrawal.adminRemarks = adminRemarks || "";
-    await withdrawal.save();
+    const withdrawals = await Withdrawal.find({
+      user: req.user.id
+    });
 
-    // Update wallet balances
-    let wallet = await Wallet.findOne({ userId: withdrawal.userId });
-    let asset = wallet.assets.find(a => a.assetType === withdrawal.assetType);
+    res.json({
+      success: true,
+      withdrawals
+    });
 
-    if (status === "APPROVED") {
-      asset.lockedBalance -= withdrawal.amount;
-    } else if (status === "REJECTED") {
-      asset.lockedBalance -= withdrawal.amount;
-      asset.availableBalance += withdrawal.amount;
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// Admin view all withdrawals
+exports.getAllWithdrawals = async (req, res) => {
+  try {
+
+    const withdrawals = await Withdrawal.find()
+      .populate("user", "name email");
+
+    res.json({
+      success: true,
+      withdrawals
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+
+// Approve withdrawal (Concurrency-safe)
+exports.approveWithdrawal = async (req, res) => {
+  try {
+
+    const withdrawalId = req.params.id;
+
+    const withdrawal = await Withdrawal.findOneAndUpdate(
+      { _id: withdrawalId, status: "pending" },
+      { $set: { status: "approved" } },
+      { new: true }
+    );
+
+    if (!withdrawal) {
+      return res.status(400).json({
+        success: false,
+        message: "Already processed"
+      });
     }
 
-    await wallet.save();
+    const user = await User.findById(withdrawal.user);
 
-    res.json({ success: true, message: `Withdrawal ${status.toLowerCase()} successfully`, data: withdrawal });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    user.walletBalance -= withdrawal.amount;
+    await user.save();
+
+    // Create notification
+    await Notification.create({
+      user: withdrawal.user,
+      message: `Your withdrawal of ${withdrawal.amount} has been approved`
+    });
+
+    res.json({
+      success: true,
+      message: "Withdrawal approved"
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
 
-// Admin: Get all withdrawals
-
-const getAllWithdrawals = async (req, res) => {
+// Reject withdrawal (Concurrency-safe)
+exports.rejectWithdrawal = async (req, res) => {
   try {
-    const withdrawals = await Withdrawal.find().sort({ createdAt: -1 });
-    res.json({ success: true, data: withdrawals });
-  } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+
+    const withdrawal = await Withdrawal.findOneAndUpdate(
+      { _id: req.params.id, status: "pending" },
+      { $set: { status: "rejected" } },
+      { new: true }
+    );
+
+    if (!withdrawal) {
+      return res.status(400).json({
+        success: false,
+        message: "Already processed"
+      });
+    }
+
+    // Create notification
+    await Notification.create({
+      user: withdrawal.user,
+      message: `Your withdrawal of ${withdrawal.amount} has been rejected`
+    });
+
+    res.json({
+      success: true,
+      message: "Withdrawal rejected"
+    });
+
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
-
-module.exports = { createWithdrawal, updateWithdrawalStatus, getAllWithdrawals };

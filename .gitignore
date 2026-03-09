@@ -1,20 +1,60 @@
 # Node modules
 node_modules/
 
-# Environment variables
-.env
-
-# Uploaded files (deposit proofs, etc.)
+# Uploads folder (deposit proofs / user uploads)
 uploads/
 
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
 # Logs
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# OS generated files
+# OS files
 .DS_Store
 Thumbs.db
 
-# Optional: VSCode settings folder
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory
+coverage/
+
+# Dependency directories
+jspm_packages/
+
+# Optional npm cache
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Build folders
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+
+# VS Code settings
 .vscode/
+
+# Mac system files
+.AppleDouble
+.LSOverride
+
+# Windows system files
+ehthumbs.db
+Desktop.ini

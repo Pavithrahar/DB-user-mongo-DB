@@ -1,9 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const { protect } = require("../middleware/authMiddleware");
-const { getUserWallet } = require("../controllers/walletController");
+const walletController = require("../controllers/walletController");
+const { protect } = require("../middleware/authMiddleware"); // JWT auth
 
-// GET /api/wallets → get all assets of logged-in user
-router.get("/", protect, getUserWallet);
+// Deposit
+router.post("/deposit", protect, walletController.createDeposit);
+
+// Withdraw
+router.post("/withdraw", protect, walletController.createWithdrawal);
 
 module.exports = router;

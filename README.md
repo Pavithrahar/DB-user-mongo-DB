@@ -1,123 +1,342 @@
-# Wallet & Transaction Management System
+# Wallet Ledger System Backend
 
-A Node.js + Express + MongoDB project for managing user wallets, deposits, withdrawals, fees, and GST.
+This project implements a **Wallet Ledger System Backend API** using **Node.js, Express.js, and MongoDB**.
 
----
-
-## Features
-
-- User authentication (Register / Login / Refresh Token) using JWT
-
-- User Wallet management (multiple assets per user)
-- Deposit functionality:
-
-  - Users can create deposits with proof (screenshot/document)
-  - Admin can approve/reject deposits
-  - Configurable fees & GST applied
-
-- Withdrawal functionality:
-  - Users can request withdrawals
-  - Admin can approve/reject withdrawals
-
-- Fee & GST management:
-  - Admin can configure fees per asset and enable/disable dynamically
-
-- Transaction history & single transaction retrieval
-- Admin transaction listing with filters (date, user, status, asset type)
-- Proper status handling (`Pending`, `Approved`, `Rejected`)
-- Audit logs for admin actions
-- Secure file upload for deposit proofs
+The system manages **user wallets, deposits, withdrawals, transaction ledgers, notifications, and admin reporting** while ensuring **data integrity, concurrency control, and security**.
 
 ---
 
-## Environment Variables
+# Tech Stack
 
-Create a `.env` file in the root:
+- Node.js
+- Express.js
+- MongoDB
+- Mongoose
+- JWT Authentication
+- bcryptjs
+- Multer (file upload)
+- Express Middleware
 
-```bash
-PORT=5000
-MONGO_URI=<Your MongoDB connection string>
-JWT_SECRET=<Your JWT access token secret>
-JWT_REFRESH_SECRET=<Your JWT refresh token secret>
+---
 
-Installation
+# Project Features
 
-git clone <your-repo-url>
-cd <project-folder>
+## 1. Transaction Ledger System
+
+A **Wallet Transaction Ledger** is implemented to record every wallet movement.
+
+### Ledger Collection Fields
+
+- Transaction ID
+- User ID
+- Asset Type
+- Transaction Type
+  - Deposit
+  - Withdrawal
+  - Fee
+  - GST
+  - Adjustment
+- Transaction Amount
+- Balance Before Transaction
+- Balance After Transaction
+- Reference ID (Deposit / Withdrawal request ID)
+- Status
+  - Pending
+  - Approved
+  - Rejected
+- Remarks
+- Created Timestamp
+- Updated Timestamp
+
+### Ledger Rules
+
+- Every wallet balance change creates a **ledger entry**
+- Ledger records are **immutable**
+- Ledger supports **audit and reconciliation**
+
+---
+
+# 2. Race Condition & Concurrent Transaction Handling
+
+The system implements **concurrency-safe wallet updates**.
+
+### Mechanisms Used
+
+- Atomic database operations
+- MongoDB transactions
+- Status validation before processing
+
+### User Concurrency Scenarios Handled
+
+- Multiple withdrawal requests submitted simultaneously
+- Concurrent deposit requests
+- Balance checks during transactions
+
+### Withdrawal Validation
+
+- Always verifies **latest available balance**
+- Prevents withdrawal if balance becomes insufficient
+- Prevents **double spending**
+
+### Admin Concurrency Scenarios
+
+- Multiple deposit approvals
+- Multiple withdrawal approvals
+- Multiple admins processing the same transaction
+
+### Approval Rules
+
+- A transaction can be **processed only once**
+- Duplicate approvals are rejected
+- Status updates are **atomic**
+
+### System Guarantees
+
+- Wallet balance integrity
+- Safe handling of high concurrency
+- No duplicate credits or debits
+
+---
+
+# 3. Notification System
+
+Users receive notifications for wallet activities.
+
+### Notification Events
+
+- Deposit request submitted
+- Deposit approved
+- Deposit rejected
+- Withdrawal request submitted
+- Withdrawal approved
+- Withdrawal rejected
+
+### Notification Collection Fields
+
+- Notification ID
+- User ID
+- Notification Type
+- Message
+- Reference Transaction ID
+- Read / Unread Status
+- Created Timestamp
+
+### Notification APIs
+
+- Get user notifications
+- Mark notification as read
+
+---
+
+# 4. Admin Dashboard & Reporting APIs
+
+Admin APIs provide **analytics and reporting**.
+
+### Reporting APIs
+
+- Total deposits (daily / monthly)
+- Total withdrawals (daily / monthly)
+- Platform fees collected
+- GST collected
+- Total assets held on platform
+
+### Report Filters
+
+- Date range
+- Asset type
+- User filter
+- Transaction status
+
+### Performance
+
+- Pagination support
+- Optimized queries for large datasets
+
+---
+
+# 5. Security & Access Control
+
+### Authentication
+
+All APIs are secured using **JWT authentication**.
+
+### Role-Based Access Control
+
+Roles implemented:
+
+- User
+- Admin
+- Super Admin
+
+### Permission Rules
+
+User APIs:
+- Access only their own wallet data
+
+Admin APIs:
+- Manage deposits
+- Manage withdrawals
+- Access reports
+- Perform approvals
+
+---
+
+# File Upload Security
+
+Deposit proof uploads are protected using:
+
+- File type restrictions (Image / PDF)
+- File size limits
+- Secure file storage configuration
+
+---
+
+# Additional Security Features
+
+- API Rate Limiting
+- Request Validation Middleware
+- Password Hashing (bcrypt)
+- Admin action logging for audit
+
+---
+
+# Project Structure
+wallet-ledger-system
+│
+├── config
+│ └── multer.js
+│
+├── controllers
+│ ├── authController.js
+│ ├── walletController.js
+│ ├── depositController.js
+│ ├── withdrawalController.js
+│ ├── transactionController.js
+│ ├── ledgerController.js
+│ ├── notificationController.js
+│ ├── adminController.js
+│ └── adminReportController.js
+│
+├── middleware
+│ ├── authMiddleware.js
+│ ├── roleMiddleware.js
+│ └── validateRequest.js
+│
+├── models
+│ ├── User.js
+│ ├── Ledger.js
+│ ├── Withdrawal.js
+│ ├── Notification.js
+│ └── AdminLog.js
+│
+├── routes
+│ ├── authRoutes.js
+│ ├── walletRoutes.js
+│ ├── depositRoutes.js
+│ ├── withdrawRoutes.js
+│ ├── ledgerRoutes.js
+│ ├── notificationRoutes.js
+│ └── adminReportRoutes.js
+│
+├── seedTransactions.js
+├── seedWallets.js
+├── server.js
+└── README.md
+
+
+---
+
+# Installation
+
+Clone the repository
+
+
+git clone https://github.com/YOUR_GITHUB_USERNAME/wallet-ledger-system.git
+
+
+Navigate to the project folder
+
+
+cd wallet-ledger-system
+
+
+Install dependencies
+
+
 npm install
+
+
+---
+
+# Environment Variables
+
+Create `.env` file
+
+
+PORT=5000
+MONGO_URI=your_mongodb_uri
+JWT_SECRET=your_secret
+JWT_REFRESH_SECRET=your_refresh_secret
+
+
+---
+
+# Run Server
+
+
 npm start
 
-Server runs at: http://localhost:5000.
+
+Server runs on
 
 
-API Endpoints — Manual Postman Testing
-
-1️⃣ Auth Routes
-
-Endpoint	Method	Headers	Body	Notes
-/api/auth/register	POST	Content-Type: application/json	json { "name": "Pavithraharini", "email": "pavithra123@gmail.com", "password": "123456" }	Register a new user
-/api/auth/login	POST	Content-Type: application/json	json { "email": "pavithra123@gmail.com", "password": "123456" }	Login and get accessToken & refreshToken
-/api/auth/refresh	POST	Content-Type: application/json	json { "token": "<refresh_token>" }	Refresh JWT access token
-
-2️⃣ Deposit Routes
-
-Endpoint	Method	Headers	Body / Form-data	Notes
-/api/deposits	POST	Authorization: Bearer <accessToken>	Form-data:
-assetType: BTC
-amount: 0.5
-network: Bitcoin
-walletAddress: <user_wallet_address>
-remarks: Test deposit
-assetProof: <file>	Create a deposit request
-/api/deposits/:id/approve	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin approves a deposit
-/api/deposits/:id/reject	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin rejects a deposit
-
-3️⃣ Withdrawal Routes
-
-Endpoint	Method	Headers	Body	Notes
-/api/withdrawals	POST	Authorization: Bearer <accessToken>	json { "assetType": "BTC", "amount": 0.2, "destinationWallet": "<wallet_address>", "remarks": "Withdrawal test" }	Request a withdrawal
-/api/withdrawals/:id/approve	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin approves a withdrawal
-/api/withdrawals/:id/reject	PATCH	Authorization: Bearer <admin_accessToken>	None	Admin rejects a withdrawal
-
-4️⃣ Wallet Routes
-
-Endpoint	Method	Headers	Body	Notes
-/api/wallets	GET	Authorization: Bearer <accessToken>	None	Get all wallet balances for logged-in user
-
-5️⃣ Transaction Routes
-
-Endpoint	Method	Headers	Body	Notes
-/api/transactions	GET	Authorization: Bearer <accessToken>	None	Get transaction history (deposit + withdrawal)
-/api/transactions/:id	GET	Authorization: Bearer <accessToken>	None	Get single transaction details
-
-6️⃣ Fee & GST Management (Admin)
-
-Endpoint	Method	Headers	Body	Notes
-/api/fees	GET	Authorization: Bearer <admin_accessToken>	None	List all fee configurations
-/api/fees	POST	Authorization: Bearer <admin_accessToken>	json { "assetType": "BTC", "feePercentage": 0.5, "gstPercentage": 18, "enabled": true }	Create or update fee & GST
-Testing Notes
+http://localhost:5000
 
 
-Always replace tokens:
+---
 
-<accessToken> = token from user login
+# API Overview
 
-<admin_accessToken> = token from admin login
-
-<refresh_token> = refresh token from login
+Authentication
 
 
-Deposit/Withdrawal IDs: Use _id from API responses for approve/reject.
+POST /api/auth/register
+POST /api/auth/login
 
 
-Sequence to test:
+Wallet
 
-1.Register → Login → Deposit → Approve Deposit → Check Wallet
 
-2.Request Withdrawal → Approve Withdrawal → Check Wallet
+GET /api/wallet
 
-3.Check Transaction History → Single Transaction → Fees
 
-4.Deposit uses form-data (file upload), all others use JSON.
+Deposits
 
-5.Statuses: Pending, Approved, Rejected.
+
+POST /api/deposit
+
+
+Withdrawals
+
+
+POST /api/withdraw
+
+
+Notifications
+
+
+GET /api/notifications
+PATCH /api/notifications/read
+
+
+Admin Reports
+
+
+GET /api/admin/reports
+
+
+---
+
+# Author
+
+Wallet Ledger Backend System developed for backend engineering task.

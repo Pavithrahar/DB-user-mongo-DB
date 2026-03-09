@@ -1,6 +1,7 @@
 const Deposit = require("../models/Deposit");
 const Wallet = require("../models/Wallet");
 const FeeConfig = require("../models/FeeConfig");
+const Ledger = require("../models/Ledger");
 
 
 // Create Deposit (User)
@@ -28,6 +29,7 @@ const createDeposit = async (req, res) => {
       message: "Deposit created successfully",
       data: deposit,
     });
+
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
@@ -39,39 +41,55 @@ const createDeposit = async (req, res) => {
 const getAllDeposits = async (req, res) => {
   try {
     const deposits = await Deposit.find({ userId: req.user._id }).sort({ createdAt: -1 });
-    res.json({ success: true, data: deposits });
+
+    res.json({
+      success: true,
+      data: deposits
+    });
+
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }
 };
 
 
-// Admin: Approve/Reject Deposit
+// Admin Approve / Reject Deposit
 
 const updateDepositStatus = async (req, res) => {
   try {
+
     const { status, adminRemarks } = req.body;
+
     const deposit = await Deposit.findById(req.params.id);
-    if (!deposit) return res.status(404).json({ success: false, message: "Deposit not found" });
+
+    if (!deposit)
+      return res.status(404).json({ success: false, message: "Deposit not found" });
 
     deposit.status = status;
     deposit.adminRemarks = adminRemarks || "";
+
     await deposit.save();
 
-    // Only process wallet if approved
+
+    // Process wallet only if approved
     if (status === "APPROVED") {
-      // Get fee config
+
       const feeConfig = await FeeConfig.findOne({ assetType: deposit.assetType });
-      let fee = 0, gst = 0, finalAmount = deposit.amount;
+
+      let fee = 0;
+      let gst = 0;
+      let finalAmount = deposit.amount;
 
       if (feeConfig && feeConfig.feesEnabled) {
-        fee = deposit.amount * feeConfig.feePercent / 100;
-        gst = fee * feeConfig.gstPercent / 100;
+        fee = (deposit.amount * feeConfig.feePercent) / 100;
+        gst = (fee * feeConfig.gstPercent) / 100;
         finalAmount = deposit.amount - fee - gst;
       }
 
       let wallet = await Wallet.findOne({ userId: deposit.userId });
+
       if (!wallet) {
+
         wallet = await Wallet.create({
           userId: deposit.userId,
           assets: [{
@@ -80,19 +98,69 @@ const updateDepositStatus = async (req, res) => {
             lockedBalance: 0
           }]
         });
+
       } else {
+
         if (!wallet.assets) wallet.assets = [];
+
         let asset = wallet.assets.find(a => a.assetType === deposit.assetType);
-        if (asset) asset.availableBalance += finalAmount;
-        else wallet.assets.push({ assetType: deposit.assetType, availableBalance: finalAmount, lockedBalance: 0 });
+
+        if (!asset) {
+          wallet.assets.push({
+            assetType: deposit.assetType,
+            availableBalance: finalAmount,
+            lockedBalance: 0
+          });
+
+          asset = wallet.assets.find(a => a.assetType === deposit.assetType);
+        }
+
+        const balanceBefore = asset.availableBalance;
+
+        asset.availableBalance += finalAmount;
+
+        const balanceAfter = asset.availableBalance;
+
         await wallet.save();
+
+
+        // Create Ledger Entry
+
+        await Ledger.create({
+          transactionId: "LEDGER-" + Date.now(),
+          userId: deposit.userId,
+          assetType: deposit.assetType,
+          transactionType: "DEPOSIT",
+          amount: finalAmount,
+          balanceBefore: balanceBefore,
+          balanceAfter: balanceAfter,
+          referenceId: deposit._id,
+          status: "APPROVED",
+          remarks: "Deposit approved by admin"
+        });
+
       }
+
     }
 
-    res.json({ success: true, message: `Deposit ${status.toLowerCase()} successfully`, data: deposit });
+    res.json({
+      success: true,
+      message: `Deposit ${status.toLowerCase()} successfully`,
+      data: deposit
+    });
+
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+
+    res.status(500).json({
+      success: false,
+      message: err.message
+    });
+
   }
 };
 
-module.exports = { createDeposit, getAllDeposits, updateDepositStatus };
+module.exports = {
+  createDeposit,
+  getAllDeposits,
+  updateDepositStatus
+};

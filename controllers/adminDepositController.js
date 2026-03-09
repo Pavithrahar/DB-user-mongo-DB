@@ -2,7 +2,7 @@ const Deposit = require("../models/Deposit");
 const Wallet = require("../models/Wallet");
 const FeeSetting = require("../models/FeeSetting");
 
-// ✅ GET all deposits (Admin)
+// GET all deposits (Admin)
 exports.getAllDeposits = async (req, res) => {
   try {
     const deposits = await Deposit.find()
@@ -14,7 +14,7 @@ exports.getAllDeposits = async (req, res) => {
   }
 };
 
-// ✅ Approve deposit (Admin)
+// Approve deposit (Admin)
 exports.approveDeposit = async (req, res) => {
   try {
     const deposit = await Deposit.findById(req.params.id);
@@ -33,7 +33,7 @@ exports.approveDeposit = async (req, res) => {
       });
     }
 
-    // 🔹 Fee & GST calculation (if exists)
+    // Fee & GST calculation (if exists)
     const feeConfig =
       (await FeeSetting.findOne({ assetType: deposit.assetType })) || {
         feePercent: 0,
@@ -44,7 +44,7 @@ exports.approveDeposit = async (req, res) => {
     const gst = (fee * feeConfig.gstPercent) / 100;
     const finalAmount = deposit.amount - fee - gst;
 
-    // 🔹 Update deposit
+    // Update deposit
     deposit.status = "APPROVED";
     deposit.fee = fee;
     deposit.gst = gst;
@@ -52,7 +52,7 @@ exports.approveDeposit = async (req, res) => {
 
     await deposit.save();
 
-    // 🔹 Update wallet
+    // Update wallet
     let wallet = await Wallet.findOne({
       userId: deposit.userId,
       assetType: deposit.assetType,
@@ -80,7 +80,7 @@ exports.approveDeposit = async (req, res) => {
   }
 };
 
-// ✅ Reject deposit (Admin)
+// Reject deposit (Admin)
 exports.rejectDeposit = async (req, res) => {
   try {
     const deposit = await Deposit.findById(req.params.id);
